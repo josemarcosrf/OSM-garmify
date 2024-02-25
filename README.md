@@ -1,6 +1,6 @@
 # OSMaps to Garmin
 
-
+This is just a collection of scripts and utilities to easy create Garmin-compatible maps form open-sources.
 
 
 ## A note on OSM files
@@ -19,4 +19,4 @@ These files are used in Garmin's mapping software and devices to store and displ
 
  - [Garmin.bbbike](https://extract.bbbike.org/) (ready [bbbike regions](https://download3.bbbike.org/osm/garmin/region/)
  - [Velomap](https://www.velomap.org/)
- - 
+
