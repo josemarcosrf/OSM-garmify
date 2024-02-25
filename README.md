@@ -17,6 +17,10 @@ These files are used in Garmin's mapping software and devices to store and displ
 
 ## Map sources
 
- - [Garmin.bbbike](https://extract.bbbike.org/) (ready [bbbike regions](https://download3.bbbike.org/osm/garmin/region/)
+ - [Garmin.OpenTopo](https://garmin.opentopomap.org/)
+ - [Garmin.bbbike](https://extract.bbbike.org/) (ready [bbbike regions](https://download3.bbbike.org/osm/garmin/region/).)
+ - [freizeitkarte-osm](http://www.freizeitkarte-osm.de/)
+ - [geofabrik](https://download.geofabrik.de/)
+ - [openstreetmap Planet](https://wiki.openstreetmap.org/wiki/Planet.osm#Downloading)
  - [Velomap](https://www.velomap.org/)
 
