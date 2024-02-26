@@ -2,6 +2,19 @@
 
 This is just a collection of scripts and utilities to easy create Garmin-compatible maps form open-sources.
 
+## Requirements
+
+ - Python 3.8+
+ - [mkgmap](https://www.mkgmap.org.uk/download/mkgmap.html)
+ - [mkgmap splitter](https://www.mkgmap.org.uk/doc/splitter.html)
+ - [GMapTool](https://www.gmaptool.eu/en/content/linux-version)
+
+
+## How To
+
+1. Run: `./download_tools.sh`
+2. ...
+
 
 ## A note on OSM files
 
@@ -17,10 +30,15 @@ These files are used in Garmin's mapping software and devices to store and displ
 
 ## Map sources
 
- - [Garmin.OpenTopo](https://garmin.opentopomap.org/)
- - [Garmin.bbbike](https://extract.bbbike.org/) (ready [bbbike regions](https://download3.bbbike.org/osm/garmin/region/).)
+ - [Garmin.OpenTopo](https://garmin.opentopomap.org/) - issues with label name encoding
+
+ - [Garmin.bbbike](https://extract.bbbike.org/) (Also available [bbbike regions](https://download3.bbbike.org/osm/garmin/region/).)
+
+ - [geofabrik](https://download.geofabrik.de/) - Full OSM data for several contries & continents
+
  - [freizeitkarte-osm](http://www.freizeitkarte-osm.de/)
- - [geofabrik](https://download.geofabrik.de/)
+
  - [openstreetmap Planet](https://wiki.openstreetmap.org/wiki/Planet.osm#Downloading)
+
  - [Velomap](https://www.velomap.org/)
 
