@@ -12,6 +12,19 @@ download-gmt:
 	cd -
 
 
+
+garmify-osm:
+	# 	https://www.mkgmap.org.uk/download/mkgmap.html
+	echo "🗺️ OSM file: $${osmfile:?}"
+	echo "📂 Saving to: $${outdir:?}"
+	java -Xmx512M -jar tools/mkgmap/mkgmap.jar \
+		--unicode \
+		--max-jobs=4 \
+		--name-tag-list=name:en \
+		--gmapsupp $${osmfile} \
+		--output-dir=$${outdir}
+
+
 garmify-velomap:
 	# 	https://www.mkgmap.org.uk/download/mkgmap.html
 	echo "🧲 Grouping files from $${dir:?} with file regex: $${fileregex:?}"
