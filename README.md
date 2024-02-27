@@ -13,8 +13,11 @@ This is just a collection of scripts and utilities to easy create Garmin-compati
 ## How To
 
 1. Run: `./download_tools.sh`
-2. ...
+2. See below
 
+
+<details>
+  <summary>OSM</summary>
 
 ### OSM
 
@@ -29,12 +32,17 @@ make split-osm mapfile=data/OSM/azerbaijan-latest.osm.pbf outdir=data/OSM/azerba
 make garmify-osm dir=data/OSM/azerbaijan name='6*.osm.pbf' outdir=data/OSM/azerbaijan
 ```
 
-Alternatively, place as many .pbf files in `data/OSM/` as `data/OSM/<country-latest.osm.pbf`. Update the script with the list of coutnries to
+Alternatively, place as many .pbf files in `data/OSM/` as `data/OSM/<country>-latest.osm.pbf`. Update the script with the list of coutnries to
 process and run:
 
 ```bash
 bash do_all_osm.sh
 ```
+
+</details>
+
+<details>
+  <summary>Velomap</summary>
 
 ### Velomap
 
@@ -50,6 +58,7 @@ make garmify-velomap \
     mdxfile=data/Velo/Alps/mapset10.mdx
 ```
 
+</details>
 
 ## A note on OSM files
 
