@@ -76,7 +76,7 @@ These files are used in Garmin's mapping software and devices to store and displ
 
  - [Garmin.OpenTopo](https://garmin.opentopomap.org/) - issues with label name encoding
 
- - [Garmin.bbbike](https://extract.bbbike.org/) (Also available [bbbike regions](https://download3.bbbike.org/osm/garmin/region/).)
+ - [extract.bbbike](https://extract.bbbike.org/) - Also available in [regions](https://download3.bbbike.org/osm/garmin/region/)
 
  - [geofabrik](https://download.geofabrik.de/) - Full OSM data for several contries & continents
 
