@@ -15,6 +15,27 @@ This is just a collection of scripts and utilities to easy create Garmin-compati
 1. Run: `./download_tools.sh`
 2. ...
 
+
+### OSM
+
+After download a country .pbf map file from [geofabrik](https://download.geofabrik.de/)
+an .img map file can be created by for example:
+
+```bash
+# Split the .pbf file into smaller ones
+make split-osm mapfile=data/OSM/azerbaijan-latest.osm.pbf outdir=data/OSM/azerbaijan
+
+# Combine into a Garmin .img file
+make garmify-osm dir=data/OSM/azerbaijan name='6*.osm.pbf' outdir=data/OSM/azerbaijan
+```
+
+Alternatively, place as many .pbf files in `data/OSM/` as `data/OSM/<country-latest.osm.pbf`. Update the script with the list of coutnries to
+process and run:
+
+```bash
+bash do_all_osm.sh
+```
+
 ### Velomap
 
 After downloading some map files from [Velomap](https://www.velomap.org/),

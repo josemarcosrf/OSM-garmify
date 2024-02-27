@@ -48,13 +48,13 @@ garmify-velomap:
 	# -
 	# requires: https://www.mkgmap.org.uk/download/mkgmap.html
 	echo "🧲 Grouping files from $${dir:?} with file regex: $${fileregex:?}"
-	echo "🪛 (description file: $${mdxfile:?} | Style file: $${typfile:?})"
+# 	echo "🪛 (description file: $${mdxfile:?} | Style file: $${typfile:?})"
+# 		--description=$${mdxfile} \
+# 		--style-file=$${typfile} \
+# 		--family-name=velomap \
 	echo "📂 Saving to: $${outdir:?}"
 	files=$$(find $${dir} -type f -regex $${fileregex})
 	java -Xmx5G -jar tools/mkgmap/mkgmap.jar \
 		--gmapsupp $${files} \
-		--description=$${mdxfile} \
-		--style-file=$${typfile} \
-		--family-name=velomap \
 		--max-jobs=4 \
 		--output-dir=$${outdir}
