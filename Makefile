@@ -43,6 +43,9 @@ garmify-osm:
 
 
 garmify-velomap:
+	# Combines and converts a Velomap collection of .img, .typ and .mdx
+	# files into a  Garmin compatible .img file (gmapsupp)
+	# -
 	# requires: https://www.mkgmap.org.uk/download/mkgmap.html
 	echo "🧲 Grouping files from $${dir:?} with file regex: $${fileregex:?}"
 	echo "🪛 (description file: $${mdxfile:?} | Style file: $${typfile:?})"

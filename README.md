@@ -15,6 +15,20 @@ This is just a collection of scripts and utilities to easy create Garmin-compati
 1. Run: `./download_tools.sh`
 2. ...
 
+### Velomap
+
+After downloading some map files from [Velomap](https://www.velomap.org/),
+for example to create a .img using a 10 meter contour line and esyvelo style:
+
+
+```bash
+make garmify-velomap \
+    dir=data/Velo/Alps \
+    fileregex='.*[67].*\.img' \
+    typfile=data/Velo/Alps/esyvalp.TYP \
+    mdxfile=data/Velo/Alps/mapset10.mdx
+```
+
 
 ## A note on OSM files
 
