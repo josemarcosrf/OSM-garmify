@@ -25,6 +25,13 @@ else
     echo "✅ ${SPLITTER} already download!"
 fi
 
+if [ ! -d "osmpois.jar" ]; then
+    echo "⌛️ Downloading OSM-POIs extractor"
+    wget "https://github.com/MorbZ/OsmPoisPbf/releases/download/v1.2/osmpois.jar"
+else
+    echo "✅ osmpois.jar already download!"
+fi
+
 
 cd -
 

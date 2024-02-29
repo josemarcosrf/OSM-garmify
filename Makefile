@@ -3,13 +3,17 @@
 
 
 .ONESHELL:
-download-gmt:
-	mkdir -p tools
-	cd tools
-	wget https://www.gmaptool.eu/sites/default/files/lgmt08220.zip
-	unzip lgmt08220.zip
-	rm lgmt08220.zip *.txt
-	cd -
+extract-pois:
+	# Extracts all POIs from a given .osm.pbf file
+	# -
+	# E.g.:
+	# make extract-pois \
+	# 	pbf_file=./data/OSM/afghanistan-latest.osm.pbf \
+	# 	outfile=afghanistan-POIs.csv
+	java -Xmx4g -jar ./tools/osmpois.jar \
+		-ph \
+		-of $${outfile}  \
+		$${pbf_file}
 
 
 split-osm:
