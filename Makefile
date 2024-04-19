@@ -23,10 +23,10 @@ split-osm:
 	echo "🗺️  OSM / PBF file: $${mapfile:?}"
 	echo "📂 Saving to: $${outdir:?}"
 	java -Xmx5G -jar tools/splitter/splitter.jar \
-	--keep-complete=true \
-	--output=pbf \
-	--output-dir=$${outdir} \
-	$${mapfile}
+		--keep-complete=true \
+		--output=pbf \
+		--output-dir=$${outdir} \
+		$${mapfile}
 
 
 garmify-osm:
@@ -39,6 +39,7 @@ garmify-osm:
 	echo "📂 Saving to: $${outdir:?}"
 	java -Xmx5G -jar tools/mkgmap/mkgmap.jar \
 		--name-tag-list=name:en,int_name,name,place_name,loc_name \
+		--mapname=$$(shuf -i 10000000-99999999 -n 1) \
 		--unicode \
 		--max-jobs=4 \
 		--keep-going \
@@ -51,14 +52,18 @@ garmify-velomap:
 	# files into a  Garmin compatible .img file (gmapsupp)
 	# -
 	# requires: https://www.mkgmap.org.uk/download/mkgmap.html
+	#
+	# Originally:
+	# 	echo "🪛 (description file: $${mdxfile:?} | Style file: $${typfile:?})"
+	# 		--description=$${mdxfile} \
+	# 		--style-file=$${typfile} \
+	#
 	echo "🧲 Grouping files from $${dir:?} with file regex: $${fileregex:?}"
-# 	echo "🪛 (description file: $${mdxfile:?} | Style file: $${typfile:?})"
-# 		--description=$${mdxfile} \
-# 		--style-file=$${typfile} \
-# 		--family-name=velomap \
 	echo "📂 Saving to: $${outdir:?}"
 	files=$$(find $${dir} -type f -regex $${fileregex})
 	java -Xmx5G -jar tools/mkgmap/mkgmap.jar \
+		--mapname=$$(shuf -i 10000000-99999999 -n 1) \
+		--family-name=velomap
 		--gmapsupp $${files} \
 		--max-jobs=4 \
 		--output-dir=$${outdir}

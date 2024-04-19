@@ -1,5 +1,8 @@
-MKGMAP="mkgmap-r4917" # adjust to latest version (see www.mkgmap.org.uk)
-SPLITTER="splitter-r653"
+# Adjust to latest version (see www.mkgmap.org.uk)
+MKGMAP="mkgmap-r4919"
+
+# Adjust to latest version (see https://www.mkgmap.org.uk/download/splitter.html)
+SPLITTER="splitter-r654" 
 
 TOOLS_DIR="tools"
 
