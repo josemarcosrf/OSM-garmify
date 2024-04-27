@@ -43,27 +43,8 @@ garmify-osm:
 		--unicode \
 		--max-jobs=4 \
 		--keep-going \
+		--route \
+    	--remove-short-arcs \
 		--output-dir=$${outdir} \
 		--gmapsupp $${files}
 
-
-garmify-velomap:
-	# Combines and converts a Velomap collection of .img, .typ and .mdx
-	# files into a  Garmin compatible .img file (gmapsupp)
-	# -
-	# requires: https://www.mkgmap.org.uk/download/mkgmap.html
-	#
-	# Originally:
-	# 	echo "🪛 (description file: $${mdxfile:?} | Style file: $${typfile:?})"
-	# 		--description=$${mdxfile} \
-	# 		--style-file=$${typfile} \
-	#
-	echo "🧲 Grouping files from $${dir:?} with file regex: $${fileregex:?}"
-	echo "📂 Saving to: $${outdir:?}"
-	files=$$(find $${dir} -type f -regex $${fileregex})
-	java -Xmx5G -jar tools/mkgmap/mkgmap.jar \
-		--mapname=$$(shuf -i 10000000-99999999 -n 1) \
-		--family-name=velomap
-		--gmapsupp $${files} \
-		--max-jobs=4 \
-		--output-dir=$${outdir}
