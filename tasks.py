@@ -1,5 +1,6 @@
 import glob
 import os
+import random
 import subprocess
 import tempfile
 import zipfile
@@ -9,11 +10,21 @@ from invoke import task
 from tqdm.rich import tqdm
 
 
-@task
-def extract_pois(
-    ctx,
-):
-    pass
+@task(
+    help={
+        "pbf_file": "mapfile to extract POIs from",
+        "outfile": "CSV file to export POIs",
+    }
+)
+def extract_pois(ctx, pbf_file: str, outfile: str):
+    """Extracts all POIs from a given *.osm.pbf file
+
+    E.g.:
+    invoke extract-pois \
+        pbf_file=./data/OSM/afghanistan-latest.osm.pbf \
+        outfile=afghanistan-POIs.csv
+    """
+    ctx.run(f"java -Xmx4g -jar ./tools/osmpois.jar -ph -of {outfile} {pbf_file}")
 
 
 @task(
@@ -40,11 +51,43 @@ def split_osm(
     )
 
 
-@task
+@task(
+    help={
+        "in_dir": "Input directory where to look for .pbf or .img files",
+        "outdir": "output directory",
+        "glob_pattern": "File pattern-name to look for map files to combine",
+        "recursive": "If True, look recursively for split map files to combine",
+        "n_jobs": "Max num. of parallel jobs for mkgmap",
+    }
+)
 def garmify_osm(
     ctx,
+    in_dir: str,
+    outdir: str,
+    glob_pattern: str = "6*.pbf",
+    recursive: bool = False,
+    n_jobs: int = 4,
 ):
-    pass
+    """Combines and converts a collections of .pbf or .osm map files
+    into a Garmin compatible .img file (gmapsupp)
+    -
+    requires: https://www.mkgmap.org.uk/download/mkgmap.html
+    """
+    files = glob.glob(os.path.join(in_dir, glob_pattern), recursive=recursive)
+    print(f"🗺️  OSM / PBF files: {files}")
+    print(f"📂 Saving to: {outdir}")
+    ctx.run(
+        "java -Xmx5G -jar tools/mkgmap/mkgmap.jar "
+        "--name-tag-list=name:en,int_name,name,place_name,loc_name "
+        "--unicode "
+        "--keep-going "
+        "--route "
+        "--remove-short-arcs "
+        f"--mapname={random.randint(10000000, 99999999)} "
+        f"--max-jobs={n_jobs} "
+        f"--output-dir=${outdir} "
+        f"--gmapsupp ${files}"
+    )
 
 
 @task(
@@ -91,11 +134,13 @@ def otm_xmerge(ctx, input_dir: str, country: str, gmap_tool: str = "./gmt"):
         fp.seek(0)
 
         # Compose the gmt command
-        cmd = [gmap_tool, "-j", "-o", os.path.join(input_dir, outname), "-@", fp.name]
+        cmd = " ".join(
+            [gmap_tool, "-j", "-o", os.path.join(input_dir, outname), "-@", fp.name]
+        )
         print(f"🖥️ CMD: {' '.join(cmd)}")
         if click.confirm("\n👉️ Continue with the above command? "):
             print(f"📦️ Writing final map .img file: '{outname}'")
-            subprocess.run(cmd)
+            ctx.run(cmd)
 
 
 @task(
@@ -142,8 +187,10 @@ def bbbike_xmerge(ctx, input_dir: str, output_name: str, gmap_tool: str = "./gmt
         fp.seek(0)
 
         # Compose the gmt command
-        cmd = [gmap_tool, "-j", "-o", os.path.join(input_dir, outname), "-@", fp.name]
+        cmd = " ".join(
+            [gmap_tool, "-j", "-o", os.path.join(input_dir, outname), "-@", fp.name]
+        )
         print(f"🖥️ CMD: {' '.join(cmd)}")
         if click.confirm("\n👉️ Continue with the above command? "):
             print(f"📦️ Writing final map .img file: '{outname}'")
-            subprocess.run(cmd)
+            ctx.run(cmd)
