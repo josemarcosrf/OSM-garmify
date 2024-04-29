@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:b9dd3690b092ecbdf580a5b0abe4497aa4e9e19e12015c78cae59c0d83bfca97"
+content_hash = "sha256:4defacce09193e2e8a3cb8dbb0923f318887d8652727ff96650aab43e91e519e"
 
 [[package]]
 name = "click"
@@ -144,4 +144,13 @@ dependencies = [
 files = [
     {file = "tqdm-4.66.2-py3-none-any.whl", hash = "sha256:1ee4f8a893eb9bef51c6e35730cebf234d5d0b6bd112b0271e10ed7c24a02bd9"},
     {file = "tqdm-4.66.2.tar.gz", hash = "sha256:6cd52cdf0fef0e0f543299cfc96fec90d7b8a7e88745f411ec33eb44d5ed3531"},
+]
+
+[[package]]
+name = "wget"
+version = "3.2"
+summary = "pure python download utility"
+groups = ["default"]
+files = [
+    {file = "wget-3.2.zip", hash = "sha256:35e630eca2aa50ce998b9b1a127bb26b30dfee573702782aa982f875e3f16061"},
 ]

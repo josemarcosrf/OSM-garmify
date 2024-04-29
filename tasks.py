@@ -1,11 +1,13 @@
 import glob
 import os
 import random
+import shutil
 import subprocess
 import tempfile
 import zipfile
 
 import click
+import wget
 from invoke import task
 from tqdm.rich import tqdm
 
@@ -16,7 +18,9 @@ from tqdm.rich import tqdm
         "outfile": "CSV file to export POIs",
     }
 )
-def extract_pois(ctx, pbf_file: str, outfile: str):
+def extract_pois(
+    ctx, pbf_file: str, outfile: str, osmpois_jar: str = "./tools/osmpois.jar"
+):
     """Extracts all POIs from a given *.osm.pbf file
 
     E.g.:
@@ -24,7 +28,7 @@ def extract_pois(ctx, pbf_file: str, outfile: str):
         pbf_file=./data/OSM/afghanistan-latest.osm.pbf \
         outfile=afghanistan-POIs.csv
     """
-    ctx.run(f"java -Xmx4g -jar ./tools/osmpois.jar -ph -of {outfile} {pbf_file}")
+    ctx.run(f"java -Xmx4g -jar {osmpois_jar} -ph -of {outfile} {pbf_file}")
 
 
 @task(
@@ -35,7 +39,7 @@ def extract_pois(ctx, pbf_file: str, outfile: str):
     }
 )
 def split_osm(
-    ctx, mapfile: str, outdir: str, splitter_jar: str = "tools/splitter/splitter.jar"
+    ctx, mapfile: str, outdir: str, splitter_jar: str = "./tools/splitter/splitter.jar"
 ):
     """Splits a .pbf or .osm file into smaller map tiles
     requires: Java & https://www.mkgmap.org.uk/doc/splitter.html
@@ -67,6 +71,7 @@ def garmify_osm(
     glob_pattern: str = "6*.pbf",
     recursive: bool = False,
     n_jobs: int = 4,
+    mkgmap_jar: str = "./tools/mkgmap/mkgmap.jar",
 ):
     """Combines and converts a collections of .pbf or .osm map files
     into a Garmin compatible .img file (gmapsupp)
@@ -77,7 +82,7 @@ def garmify_osm(
     print(f"🗺️  OSM / PBF files: {files}")
     print(f"📂 Saving to: {outdir}")
     ctx.run(
-        "java -Xmx5G -jar tools/mkgmap/mkgmap.jar "
+        f"java -Xmx5G -jar {mkgmap_jar} "
         "--name-tag-list=name:en,int_name,name,place_name,loc_name "
         "--unicode "
         "--keep-going "
@@ -88,6 +93,64 @@ def garmify_osm(
         f"--output-dir=${outdir} "
         f"--gmapsupp ${files}"
     )
+
+
+@task(help={})
+def download_geofabric_and_garmify(
+    ctx, continent: str, countries: list[str], workdir: str = "data/OSM"
+):
+    """Creates a Garmin compatible map of the given countries based on
+        map downlaods from Geofabrik.
+
+        Note that for now it is limited to countries in the same Continent!
+
+        Args:
+            countries (list[str]): Comma separated list of countries to download.
+            Example:
+                afghanistan
+                armenia
+                azerbaijan
+                india
+                iran
+                kazakhstan
+                kyrgyzstan
+                nepal
+                pakistan
+                tajikistan
+                turkmenistan
+                uzbekistan
+    )
+    """
+
+    print(f"List of countries: {countries}")
+    os.makedirs(workdir, exists_ok=True)
+
+    for country in countries:
+        country_dir = os.path.join(workdir, country)
+        map_pbf_file = os.path.join(workdir, f"{country}-latest.osm.pbf")
+
+        if not os.path.exists(map_pbf_file):
+            print("⏳️ Downloading country {country}")
+            wget.download(
+                f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf",
+                out=country_dir,
+            )
+
+        print("🪛 Processing country {country}")
+
+        print("✂️ Splitting...")
+        split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
+
+        print("🗺️ Combining...")
+        garmify_osm(
+            ctx, in_dir=country_dir, glob_pattern="6*.osm.pbf", outdir=country_dir
+        )
+
+        print("🔀 Moving and renaming resulting map")
+        shutil.move(
+            os.path.join(country_dir, "gmapsupp.img"), f"{country}_OSM_unicode.img"
+        )
+        os.unlink(country_dir)
 
 
 @task(
