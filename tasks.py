@@ -126,18 +126,16 @@ def download_geofabrik_and_garmify(
     os.makedirs(workdir, exist_ok=True)
 
     for country in countries.split(","):
+        country = country.lower()
         country_dir = os.path.join(workdir, country)
-        map_pbf_file = os.path.join(workdir, f"{country}-latest.osm.pbf")
+        map_pbf_file = os.path.join(country_dir, f"{country}-latest.osm.pbf")
 
         if not os.path.exists(map_pbf_file):
             print(f"⏳️ Downloading country '{country}'")
-            wget.download(
-                f"https://download.geofabrik.de/{continent.lower()}/{country.lower()}-latest.osm.pbf",
-                out=country_dir,
-            )
+            country_url = f"https://download.geofabrik.de/{continent.lower()}/{country}-latest.osm.pbf"
+            wget.download(country_url, out=map_pbf_file)
 
-        print("🪛 Processing country {country}")
-
+        print("\n\n🪛 Processing country {country}")
         print("✂️ Splitting...")
         split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
 
