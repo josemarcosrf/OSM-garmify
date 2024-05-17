@@ -96,7 +96,7 @@ def garmify_osm(
 
 
 @task(help={})
-def download_geofabric_and_garmify(
+def download_geofabrik_and_garmify(
     ctx, continent: str, countries: list[str], workdir: str = "data/OSM"
 ):
     """Creates a Garmin compatible map of the given countries based on
