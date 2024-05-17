@@ -97,7 +97,7 @@ def garmify_osm(
 
 @task(help={})
 def download_geofabrik_and_garmify(
-    ctx, continent: str, countries: list[str], workdir: str = "data/OSM"
+    ctx, continent: str, countries: str, workdir: str = "data/OSM"
 ):
     """Creates a Garmin compatible map of the given countries based on
         map downlaods from Geofabrik.
@@ -123,16 +123,16 @@ def download_geofabrik_and_garmify(
     """
 
     print(f"List of countries: {countries}")
-    os.makedirs(workdir, exists_ok=True)
+    os.makedirs(workdir, exist_ok=True)
 
-    for country in countries:
+    for country in countries.split(","):
         country_dir = os.path.join(workdir, country)
         map_pbf_file = os.path.join(workdir, f"{country}-latest.osm.pbf")
 
         if not os.path.exists(map_pbf_file):
-            print("⏳️ Downloading country {country}")
+            print(f"⏳️ Downloading country '{country}'")
             wget.download(
-                f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf",
+                f"https://download.geofabrik.de/{continent.lower()}/{country.lower()}-latest.osm.pbf",
                 out=country_dir,
             )
 
