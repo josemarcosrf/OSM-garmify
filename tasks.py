@@ -72,6 +72,7 @@ def garmify_osm(
     outdir: str,
     glob_pattern: str = "6*.pbf",
     recursive: bool = False,
+    random_mapname: bool = False,
     n_jobs: int = 4,
     mkgmap_jar: str = "./tools/mkgmap/mkgmap.jar",
 ):
@@ -81,20 +82,24 @@ def garmify_osm(
     requires: https://www.mkgmap.org.uk/download/mkgmap.html
     """
     files = glob.glob(os.path.join(in_dir, glob_pattern), recursive=recursive)
-    print(f"🗺️  OSM / PBF files: {files}")
+    print(f"🗺️  OSM / PBF files:\n - " + "\n - ".join(files))
     print(f"📂 Saving resulting img map to: {outdir}")
-    ctx.run(
+    cmd = (
         f"java -Xmx2G -jar {mkgmap_jar} "
         "--name-tag-list=name:en,int_name,name,place_name,loc_name "
         "--unicode "
         "--keep-going "
         "--route "
         "--remove-short-arcs "
-        f"--mapname={random.randint(10000000, 99999999)} "
         f"--max-jobs={n_jobs} "
         f"--output-dir={outdir} "
         f"--gmapsupp {' '.join(files)}"
     )
+
+    if random_mapname:
+        cmd += f" --mapname={random.randint(10000000, 99999999)} "
+
+    ctx.run(cmd)
     print("✅ Done!")
 
 
@@ -128,37 +133,47 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
             uzbekistan
     )
     """
-    print(f"List of countries: {countries}")
+    country_list = countries.split(",")
+    print("List of countries: \n" + "\n - ".join(country_list))
     os.makedirs(workdir, exist_ok=True)
 
     continent = continent.lower()
-    for country in countries.split(","):
+    for country in country_list:
         country = country.lower()
+        print(f"\n🪛 Processing country {country}")
+
         country_dir = os.path.join(workdir, country)
         map_pbf_file = os.path.join(country_dir, f"{country}-latest.osm.pbf")
 
         if not os.path.exists(map_pbf_file):
             os.makedirs(country_dir, exist_ok=True)
-            country_url = f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf"
+            country_url = (
+                f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf"
+            )
             print(f"⏳️ Downloading country '{country}'")
             wget.download(country_url, out=map_pbf_file)
 
-        print(f"\n\n🪛 Processing country {country}")
-        print("✂️ Splitting...")
-        split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
+            print("✂️ Splitting...")
+            split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
 
-        print("🗺️  Combining...")
-        garmify_osm(
-            ctx, in_dir=country_dir, glob_pattern="6*.osm.pbf", outdir=country_dir
-        )
+    print("🗺️  Combining...")
+    garmify_osm(
+        ctx,
+        in_dir=workdir,
+        glob_pattern="**/6*.pbf",
+        outdir=workdir,
+        recursive=True,
+        random_mapname=True,
+    )
 
-        print("🔀 Moving and renaming resulting map")
-        shutil.move(
-            os.path.join(country_dir, "gmapsupp.img"),
-            os.path.join(workdir, f"{country}_OSM.img"),
-        )
-        shutil.rmtree(country_dir)
-        print(f"✅ '{country}' Done!")
+    img_fname = "_".join(c[:2] for c in country_list) + "_osm_geofabrik.img"
+    print(f"🔀 Moving and renaming resulting map 👉 {img_fname}")
+    shutil.move(
+        os.path.join(workdir, "gmapsupp.img"),
+        os.path.join(workdir, img_fname),
+    )
+    # shutil.rmtree(country_dir)
+    print(f"✅ '{countries}' Done!")
 
 
 @task(
