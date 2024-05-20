@@ -11,6 +11,10 @@ from invoke import Collection, UnexpectedExit, task
 from tqdm.rich import tqdm
 
 
+def _to_bullet_list(str_list):
+    return "\n - " + "\n - ".join(str_list)
+
+
 @task(
     help={
         "pbf_file": "mapfile to extract POIs from",
@@ -82,7 +86,7 @@ def garmify_osm(
     requires: https://www.mkgmap.org.uk/download/mkgmap.html
     """
     files = glob.glob(os.path.join(in_dir, glob_pattern), recursive=recursive)
-    print(f"🗺️  OSM / PBF files:\n - " + "\n - ".join(files))
+    print(f"🗺️  OSM / PBF files:{_to_bullet_list(files)}")
     print(f"📂 Saving resulting img map to: {outdir}")
     cmd = (
         f"java -Xmx2G -jar {mkgmap_jar} "
@@ -134,13 +138,13 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
     )
     """
     country_list = countries.split(",")
-    print("List of countries: \n" + "\n - ".join(country_list))
+    print(f"List of countries:{_to_bullet_list(country_list)}")
     os.makedirs(workdir, exist_ok=True)
 
     continent = continent.lower()
     for country in country_list:
         country = country.lower()
-        print(f"\n🪛 Processing country {country}")
+        print(f"🪛  Processing country {country}")
 
         country_dir = os.path.join(workdir, country)
         map_pbf_file = os.path.join(country_dir, f"{country}-latest.osm.pbf")
