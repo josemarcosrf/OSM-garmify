@@ -131,14 +131,16 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
     print(f"List of countries: {countries}")
     os.makedirs(workdir, exist_ok=True)
 
+    continent = continent.lower()
     for country in countries.split(","):
         country = country.lower()
         country_dir = os.path.join(workdir, country)
         map_pbf_file = os.path.join(country_dir, f"{country}-latest.osm.pbf")
 
         if not os.path.exists(map_pbf_file):
+            os.makedirs(country_dir, exist_ok=True)
+            country_url = f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf"
             print(f"⏳️ Downloading country '{country}'")
-            country_url = f"https://download.geofabrik.de/{continent.lower()}/{country}-latest.osm.pbf"
             wget.download(country_url, out=map_pbf_file)
 
         print(f"\n\n🪛 Processing country {country}")
@@ -155,7 +157,7 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
             os.path.join(country_dir, "gmapsupp.img"),
             os.path.join(workdir, f"{country}_OSM.img"),
         )
-        os.unlink(country_dir)
+        shutil.rmtree(country_dir)
         print(f"✅ '{country}' Done!")
 
 
