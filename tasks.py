@@ -1,18 +1,24 @@
 import glob
 import os
 import random
+import re
 import shutil
 import tempfile
 import zipfile
 
 import click
 import wget
-from invoke import Collection, UnexpectedExit, task
+from invoke import task
 from tqdm.rich import tqdm
 
 
 def _to_bullet_list(str_list):
     return "\n - " + "\n - ".join(str_list)
+
+
+def _print_cmd(cmd_str: str) -> None:
+    print("⚙  Running command:")
+    print(re.sub(r"--", r"\\\n  --", cmd_str))
 
 
 @task(
@@ -51,13 +57,15 @@ def split_osm(
     """
     print(f"🗺️  OSM / PBF file: {mapfile}")
     print(f"📂 Saving splits to: {outdir}")
-    ctx.run(
+    cmd = (
         f"java -Xmx2G -jar {splitter_jar} "
         "--keep-complete=true "
         "--output=pbf "
         f"--output-dir={outdir} "
         f"{mapfile} "
     )
+    _print_cmd(cmd)
+    ctx.run(cmd)
     print("✅ Done!")
 
 
@@ -103,7 +111,8 @@ def garmify_osm(
     if random_mapname:
         cmd += f" --mapname={random.randint(10000000, 99999999)} "
 
-    ctx.run(cmd)
+    _print_cmd(cmd)
+    # ctx.run(cmd)
     print("✅ Done!")
 
 
@@ -121,20 +130,9 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
     Note that for now it is limited to countries in the same Continent!
 
     Args:
+        continent: The continent name from which to download country maps
         countries (list[str]): Comma separated list of countries to download.
-        Example:
-            afghanistan
-            armenia
-            azerbaijan
-            india
-            iran
-            kazakhstan
-            kyrgyzstan
-            nepal
-            pakistan
-            tajikistan
-            turkmenistan
-            uzbekistan
+            e.g.: iran,turkmenistan,uzbekistan
     )
     """
     country_list = countries.split(",")
