@@ -1,3 +1,5 @@
+#!bin/bash
+
 indir="${PWD}/data/OSM/"
 outdir=${indir}/${country}
 mapname=$(shuf -i 10000000-99999999 -n 1)
@@ -24,6 +26,7 @@ java -Xmx1G -jar tools/mkgmap/mkgmap.jar \
     --keep-going \
     --route \
     --remove-short-arcs \
+    --remove-ovm-work-files \
     --gmapsupp ${files} \
     --output-dir="${outdir}"
 
@@ -34,11 +37,12 @@ files=$(find ${indir} -type f -iname '6*.pbf')
 echo ${files} | tr ' ' "\n"
 java -Xmx2G -jar tools/mkgmap/mkgmap.jar \
     --name-tag-list=name:en,int_name,name,place_name,loc_name \
-    --mapname=${mapname} \
-    --max-jobs=4 \
+    --unicode \
     --keep-going \
     --route \
-    --unicode \
     --remove-short-arcs \
+    --remove-ovm-work-files \
+    --max-jobs=4 \
     --gmapsupp ${files} \
+    --mapname=${mapname} \
     --output-dir="${indir}"

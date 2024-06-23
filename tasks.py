@@ -12,11 +12,11 @@ from invoke import task
 from tqdm.rich import tqdm
 
 
-def _to_bullet_list(str_list):
+def to_bullet_list(str_list):
     return "\n - " + "\n - ".join(str_list)
 
 
-def _print_cmd(cmd_str: str) -> None:
+def print_cmd(cmd_str: str) -> None:
     print("⚙  Running command:")
     print(re.sub(r"--", r"\\\n  --", cmd_str))
 
@@ -59,12 +59,13 @@ def split_osm(
     print(f"📂 Saving splits to: {outdir}")
     cmd = (
         f"java -Xmx2G -jar {splitter_jar} "
+        f"{mapfile} "
+        f"--mapid={random.randint(10000000, 99999999)} "
+        f"--output-dir={outdir} "
         "--keep-complete=true "
         "--output=pbf "
-        f"--output-dir={outdir} "
-        f"{mapfile} "
     )
-    _print_cmd(cmd)
+    print_cmd(cmd)
     ctx.run(cmd)
     print("✅ Done!")
 
@@ -82,7 +83,7 @@ def garmify_osm(
     ctx,
     in_dir: str,
     outdir: str,
-    glob_pattern: str = "6*.pbf",
+    glob_pattern: str = "[0-9]*.pbf",
     recursive: bool = False,
     random_mapname: bool = False,
     n_jobs: int = 4,
@@ -94,8 +95,8 @@ def garmify_osm(
     requires: https://www.mkgmap.org.uk/download/mkgmap.html
     """
     files = glob.glob(os.path.join(in_dir, glob_pattern), recursive=recursive)
-    print(f"🗺️  OSM / PBF files:{_to_bullet_list(files)}")
-    print(f"📂 Saving resulting img map to: {outdir}")
+    print(f"🗺️  OSM / PBF files:{to_bullet_list(files)}")
+    print(f"📦 Total files to combine: {len(files)}")
     cmd = (
         f"java -Xmx2G -jar {mkgmap_jar} "
         "--name-tag-list=name:en,int_name,name,place_name,loc_name "
@@ -103,6 +104,7 @@ def garmify_osm(
         "--keep-going "
         "--route "
         "--remove-short-arcs "
+        "--remove-ovm-work-files "
         f"--max-jobs={n_jobs} "
         f"--output-dir={outdir} "
         f"--gmapsupp {' '.join(files)}"
@@ -111,8 +113,9 @@ def garmify_osm(
     if random_mapname:
         cmd += f" --mapname={random.randint(10000000, 99999999)} "
 
-    _print_cmd(cmd)
-    # ctx.run(cmd)
+    print_cmd(cmd)
+    print(f"📂 Saving resulting img map to: {outdir}")
+    ctx.run(cmd)
     print("✅ Done!")
 
 
@@ -135,26 +138,28 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
             e.g.: iran,turkmenistan,uzbekistan
     )
     """
+
+    def _download_map():
+        os.makedirs(country_dir, exist_ok=True)
+        country_url = (
+            f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf"
+        )
+        print(f"⏳️ Downloading country '{country}'")
+        wget.download(country_url, out=map_pbf_file)
+
     country_list = countries.split(",")
-    print(f"List of countries:{_to_bullet_list(country_list)}")
+    print(f"List of countries:{to_bullet_list(country_list)}")
     os.makedirs(workdir, exist_ok=True)
 
     continent = continent.lower()
     for country in country_list:
         country = country.lower()
         print(f"🪛  Processing country {country}")
-
         country_dir = os.path.join(workdir, country)
         map_pbf_file = os.path.join(country_dir, f"{country}-latest.osm.pbf")
 
         if not os.path.exists(map_pbf_file):
-            os.makedirs(country_dir, exist_ok=True)
-            country_url = (
-                f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf"
-            )
-            print(f"⏳️ Downloading country '{country}'")
-            wget.download(country_url, out=map_pbf_file)
-
+            _download_map()
             print("✂️ Splitting...")
             split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
 
@@ -162,13 +167,13 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
     garmify_osm(
         ctx,
         in_dir=workdir,
-        glob_pattern="**/6*.pbf",
+        glob_pattern="**/[0-9]*.pbf",
         outdir=workdir,
         recursive=True,
         random_mapname=True,
     )
 
-    img_fname = "_".join(c[:2] for c in country_list) + "_osm_geofabrik.img"
+    img_fname = "+".join(c[:2].upper() for c in country_list) + "_osm_geofabrik.img"
     print(f"🔀 Moving and renaming resulting map 👉 {img_fname}")
     shutil.move(
         os.path.join(workdir, "gmapsupp.img"),

@@ -4,7 +4,7 @@ This is just a collection of scripts and utilities to easy create Garmin-compati
 
 ## Requirements
 
- - Python 3.8+
+ - Python 3.11+
  - [mkgmap](https://www.mkgmap.org.uk/download/mkgmap.html)
  - [mkgmap splitter](https://www.mkgmap.org.uk/doc/splitter.html)
  - [GMapTool](https://www.gmaptool.eu/en/content/linux-version)
@@ -16,49 +16,72 @@ This is just a collection of scripts and utilities to easy create Garmin-compati
 2. See below
 
 
-<details>
-  <summary>OSM</summary>
-
 ### OSM
 
-After download a country .pbf map file from [geofabrik](https://download.geofabrik.de/)
-an .img map file can be created by for example:
+The commands below show how to work with OSM data.
 
-```bash
+```shell
 # Split the .pbf file into smaller ones
-make split-osm mapfile=data/OSM/azerbaijan-latest.osm.pbf outdir=data/OSM/azerbaijan
-
-# Combine into a Garmin .img file
-make garmify-osm dir=data/OSM/azerbaijan name='6*.osm.pbf' outdir=data/OSM/azerbaijan
+inv split-osm ./data/OSM/armenia/armenia-latest.osm.pbf -o ./data/OSM/armenia/
 ```
 
-Alternatively, place as many .pbf files in `data/OSM/` as `data/OSM/<country>-latest.osm.pbf`. Update the script with the list of coutnries to
-process and run:
+```shell
+# Combine several '.pbf' files into a single .img
+inv garmify-osm \
+    --random-mapname \
+    -i ./data/OSM/ \
+    -o ./data/OSM/ \
+    -g <tile-1.osm.pbf> <tile-2.osm.pbf> \
+    -n 2
+```
+
+Alternatively, use a glob patterns with recursive search. Place as many .pbf files in `data/OSM/*/` :
 
 ```bash
-bash do_all_osm.sh
+# Combine every pbf file within ./data/OSM/*/*.pbf into a single Garmin .img file
+inv garmify-osm \
+    -i ./data/OSM/ \
+    -o ./data/OSM/ \
+    -g '**/[0-9]*.pbf' \
+    --random-mapname \
+    --recurisve
+    -n 2
+```
+
+<details>
+  <summary>Geofabrik</summary>
+
+#### Geofabrik
+
+It is also possible to download, split & merge all in one single command, using data
+from [geofabrik](https://download.geofabrik.de/):
+
+```shell
+# Download all Asian countries of the silk-road and combine into a single .img
+inv garmify-geofabrik \
+    --continent asia \
+    --countries armenia,iran,turkmenistan,uzbekistan,tajikistan,kyrgyzstan,kazakhstan
 ```
 
 </details>
 
+
 <details>
   <summary>Velomap</summary>
 
-### Velomap
 
 After downloading some map files from [Velomap](https://www.velomap.org/),
 for example to create a .img using a 10 meter contour line and esyvelo style:
 
 
-```bash
-make garmify-velomap \
+```shell
+inv garmify-velomap \
     dir=data/Velo/Alps \
     fileregex='.*[67].*\.img' \
     typfile=data/Velo/Alps/esyvalp.TYP \
     mdxfile=data/Velo/Alps/mapset10.mdx
 ```
 
-</details>
 
 ## A note on OSM files
 
