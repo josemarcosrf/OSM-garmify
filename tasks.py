@@ -45,7 +45,9 @@ def download_geofabrik(ctx, continent: str, country: str, output_dir: Path | str
 
 
 @task
-def download_otm(ctx, continent: str, country: str, output_dir: Path | str):
+def download_otm(
+    ctx, continent: str, country: str, output_dir: Path | str, delete_zips: bool = False
+):
     """Downloads the country's map and contours zipped .img files from garmin.opentopomap.org
 
     Args:
@@ -53,6 +55,26 @@ def download_otm(ctx, continent: str, country: str, output_dir: Path | str):
         country (str): Country to download maps of
         output_dir (str): Directory where to store the map zipped files
     """
+
+    def download_and_extract(map_name: str):
+        zip_fpath = out_dir / f"{map_name}.zip"
+        map_img_fpath = out_dir / f"{map_name}.img"
+        if not map_img_fpath.exists():
+            if not zip_fpath.exists():
+                print(f"\n⏳️ Downloading '{map_name}'")
+                wget.download(base_url + map_name + ".zip", out=str(zip_fpath))
+
+            print(f"\n📤️ Extracting '{zip_fpath}'")
+            with zipfile.ZipFile(str(zip_fpath), "r") as zf:
+                zf.extract(member=map_name + ".img", path=str(out_dir))
+        else:
+            print(f"💫 Nothing to do; '{map_img_fpath}' already exists.")
+
+        if delete_zips:
+            zip_fpath.unlink()
+
+        return map_img_fpath
+
     # Create output dir if not present
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -60,18 +82,12 @@ def download_otm(ctx, continent: str, country: str, output_dir: Path | str):
     base_url = f"https://garmin.opentopomap.org/{continent}/{country}/"
 
     # Download the map file
-    map_name = f"otm-{country}.zip"
-    map_fpath = out_dir / map_name
-    if not map_fpath.exists():
-        print(f"\n⏳️ Downloading OTM for '{country}'")
-        wget.download(base_url + map_name, out=str(map_fpath))
+    map_path = download_and_extract(f"otm-{country}")
 
     # Downlaod the contours file
-    contours_name = f"otm-{country}-contours.zip"
-    contours_fpath = out_dir / contours_name
-    if not contours_fpath.exists():
-        print(f"\n⏳️ Downloading OTM contours for '{country}'")
-        wget.download(base_url + contours_name, out=str(contours_fpath))
+    contours_path = download_and_extract(f"otm-{country}-contours")
+
+    return map_path, contours_path
 
 
 @task
@@ -96,7 +112,7 @@ def extract_pois(
 
 
 @task
-def split_osm(
+def split(
     ctx,
     mapfile: Path | str,
     outdir: Path | str,
@@ -126,7 +142,7 @@ def split_osm(
 
 
 @task
-def garmify_osm(
+def garmify(
     ctx,
     output_file: str,
     input_files: str = "",
@@ -197,7 +213,14 @@ def garmify_osm(
 
 
 @task
-def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./data/OSM"):
+def garmify_geofabrik(
+    ctx,
+    continent: str,
+    countries: str,
+    workdir: str = "./data/OSM",
+    split_maps: bool = True,
+    merge_maps: bool = True,
+):
     """Downloads and creates a Garmin compatible map of the given countries from Geofabrik.
 
     Note that for now it is limited to countries in the same Continent!
@@ -207,6 +230,9 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./dat
         countries (list[str]): Comma separated list of countries to download.
                                e.g.: iran,turkmenistan,uzbekistan
         workdir (str): "Directory to download and create resulting map files.
+        split_maps (bool): Whether to split after download (to avoid mem issues)
+        merge_maps (bool): Whether to merge into a single map file
+                           (required in some Garmin devices. e.g.: Edge 830)
     )
     """
     country_list = countries.split(",")
@@ -224,17 +250,25 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./dat
         map_pbf_file = country_dir / f"{country}-latest.osm.pbf"
         if not map_pbf_file.exists():
             download_geofabrik(ctx, continent, country, country_dir)
-            split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
 
-    print("🗺️  Combining...")
-    img_fname = "+".join(c[:2].upper() for c in country_list) + "_osm_geofabrik.img"
-    garmify_osm(
-        ctx,
-        glob_pattern=str(workdir / "**/[0-9]*.pbf"),
-        output_file=workdir / img_fname,
-        recursive=True,
-        random_mapname=True,
-    )
+        if split_maps:
+            split(ctx, mapfile=map_pbf_file, outdir=country_dir)
+
+    if merge:
+        if split_maps:
+            glob_pattern = str(workdir / "**/[0-9]*.pbf")
+        else:
+            glob_pattern = str(workdir / "**/*-latest.osm.pbf")
+
+        print("🗺️  Merging all maps...")
+        img_fname = "+".join(c[:3].upper() for c in country_list) + "_osm_geofabrik.img"
+        garmify(
+            ctx,
+            glob_pattern=glob_pattern,
+            output_file=workdir / img_fname,
+            recursive=True,
+            random_mapname=True,
+        )
 
     print(f"✅ '{countries}' Done!")
 
@@ -247,7 +281,7 @@ def garmify_otm(
     workdir: str,
     gmt_binary: str = "./tools/gmt",
 ):
-    """Downloads, extracts and merges map and countour files into a single Garmin map file.
+    """Downloads, extracts and merges a country's map and countour files into a single Garmin map file.
 
     Requires GMapTool: https://www.gmaptool.eu/en/content/linux-version
 
@@ -255,38 +289,27 @@ def garmify_otm(
         continent (str): Name of the continent to download the map
         country (str): Name of the country to which download the map
         workdir (str): Directory containing opentopo zipfiles
-        gmt_binary (str, optional): Path the gmap bin file. Defaults to ./tools/gmt. Defaults to "./tools/gmt".
+        gmt_binary (str, optional): Path the gmap bin file. Defaults to "./tools/gmt".
     """
     workdir = Path(workdir)
 
-    map_zipfile = workdir / f"otm-{country}.zip"
-    contour_zipfile = workdir / f"otm-{country}-contours.zip"
-    if not map_zipfile.exists() or not contour_zipfile.exists():
-        print(f"❌ 📂 Couldn't find '{map_zipfile}' OR '{contour_zipfile}'")
-        download_otm(ctx, continent, country, workdir)
+    # Download and extract OTM map & contour files
+    img_fpath, contours_fpath = download_otm(
+        ctx, continent, country, workdir, delete_zips=True
+    )
 
-    print(f"📤️ Extracting '{map_zipfile}'")
-    map_img = f"otm-{country}.img"
-    with zipfile.ZipFile(map_zipfile, "r") as zf:
-        zf.extract(member=map_img, path=str(workdir))
-
-    print(f"📤️ Extracting '{contour_zipfile}'")
-    contour_img = f"otm-{country}-contours.img"
-    with zipfile.ZipFile(contour_zipfile, "r") as zf:
-        zf.extract(member=contour_img, path=str(workdir))
-
-    # Write all the extracted files in a tmp txt file
-    outname = f"{country}_otm.img"
     with tempfile.NamedTemporaryFile("w", suffix=".txt") as fp:
-        fp.write(str(workdir / map_img) + "\n")
-        fp.write(str(workdir / contour_img) + "\n")
+        # Write all the extracted files in a tmp txt file for merging
+        fp.write(str(img_fpath) + "\n")
+        fp.write(str(contours_fpath) + "\n")
         fp.seek(0)
 
         # Compose the gmt command
-        cmd = " ".join([gmt_binary, "-j", "-o", str(workdir / outname), "-@", fp.name])
+        output_path = workdir / f"{country}_otm.img"
+        cmd = " ".join([gmt_binary, "-j", "-o", str(output_path), "-@", fp.name])
         print_cmd(cmd)
         if click.confirm("\n👉️ Continue with the above command? "):
-            print(f"📦️ Writing final map .img file: '{outname}'")
+            print(f"📦️ Writing final map .img file: '{output_path}'")
             ctx.run(cmd)
 
 
