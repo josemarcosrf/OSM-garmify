@@ -36,10 +36,12 @@ def download_geofabrik(ctx, continent: str, country: str, output_dir: Path | str
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    map_name = f"{country}-latest.osm.pbf"
     download_url = f"https://download.geofabrik.de/{continent}/{map_name}"
-    print(f"⏳️ Downloading country '{country}'")
-    wget.download(download_url, out=str(out_dir / map_name))
+    map_name = f"{country}-latest.osm.pbf"
+    map_fpath = out_dir / map_name
+    if not map_fpath.exists():
+        print(f"⏳️ Downloading country '{country}'")
+        wget.download(download_url, out=str(map_fpath))
 
 
 @task
@@ -58,22 +60,21 @@ def download_otm(ctx, continent: str, country: str, output_dir: Path | str):
     base_url = f"https://garmin.opentopomap.org/{continent}/{country}/"
 
     # Download the map file
-    print(f"\n⏳️ Downloading OTM for '{country}'")
     map_name = f"otm-{country}.zip"
-    wget.download(base_url + map_name, out=str(out_dir / map_name))
+    map_fpath = out_dir / map_name
+    if not map_fpath.exists():
+        print(f"\n⏳️ Downloading OTM for '{country}'")
+        wget.download(base_url + map_name, out=str(map_fpath))
 
     # Downlaod the contours file
-    print(f"\n⏳️ Downloading OTM contours for '{country}'")
     contours_name = f"otm-{country}-contours.zip"
-    wget.download(base_url + contours_name, out=str(out_dir / contours_name))
+    contours_fpath = out_dir / contours_name
+    if not contours_fpath.exists():
+        print(f"\n⏳️ Downloading OTM contours for '{country}'")
+        wget.download(base_url + contours_name, out=str(contours_fpath))
 
 
-@task(
-    help={
-        "pbf_file": "mapfile to extract POIs from",
-        "outfile": "CSV file to export POIs",
-    }
-)
+@task
 def extract_pois(
     ctx, pbf_file: str, outfile: str, osmpois_jar: str = "./tools/osmpois.jar"
 ):
@@ -83,19 +84,18 @@ def extract_pois(
     invoke extract-pois \
         pbf_file=./data/OSM/afghanistan-latest.osm.pbf \
         outfile=afghanistan-POIs.csv
+
+    Args:
+        pbf_file (str): mapfile to extract POIs from
+        outfile (str): CSV file to export POIs
+        osmpois_jar (str, optional): _description_. Defaults to "./tools/osmpois.jar".
     """
     print("Extracting POIs")
     ctx.run(f"java -Xmx4g -jar {osmpois_jar} -ph -of {outfile} {pbf_file}")
     print("✅ Done!")
 
 
-@task(
-    help={
-        "mapfile": ".pbf or .img to split",
-        "outdir": "output directory",
-        "splitter_jar": "Path to splitter jar file",
-    }
-)
+@task
 def split_osm(
     ctx,
     mapfile: Path | str,
@@ -104,6 +104,11 @@ def split_osm(
 ):
     """Splits a .pbf or .osm file into smaller map tiles
     requires: Java & https://www.mkgmap.org.uk/doc/splitter.html
+
+    Args:
+        mapfile (Path | str): .pbf or .img to split
+        outdir (Path | str): output directory
+        splitter_jar (str, optional): Path to splitter jar file. Defaults to "./tools/splitter/splitter.jar".
     """
     print(f"✂️ Splitting  OSM / PBF file: {mapfile}")
     print(f"📂 Saving splits to: {outdir}")
@@ -120,17 +125,7 @@ def split_osm(
     print("✅ Done!")
 
 
-@task(
-    help={
-        "output_file": "Output file path",
-        "input_files": "Comma separated list of map files to combine",
-        "glob_pattern": "File pattern-name to look for map files to combine",
-        "recursive": "If True, look recursively for split map files to combine",
-        "random_mapname": "Whther to use a randomly geenrated map name (8 digit number)",
-        "jobs": "Max num. of parallel jobs for mkgmap",
-        "mkgmap_jar": "Path to the mkgmap jar file. Defaults to: ./tools/mkgmap/mkgmap.jar ",
-    }
-)
+@task
 def garmify_osm(
     ctx,
     output_file: str,
@@ -145,6 +140,15 @@ def garmify_osm(
     into a Garmin compatible .img file (gmapsupp)
     -
     requires: https://www.mkgmap.org.uk/download/mkgmap.html
+
+    Args:
+        output_file (str): Output file path
+        input_files (str, optional): Comma separated list of map files to combine. Defaults to "".
+        glob_pattern (str, optional): File pattern-name to look for map files to combine. Defaults to "./data/OSM/^[0-9]*.pbf".
+        recursive (bool, optional): If True, look recursively for split map files to combine. Defaults to False.
+        random_mapname (bool, optional): Whther to use a randomly geenrated map name (8 digit number). Defaults to False.
+        jobs (int, optional): Max num. of parallel jobs for mkgmap. Defaults to 4.
+        mkgmap_jar (str, optional): Path to the mkgmap jar file. Defaults to "./tools/mkgmap/mkgmap.jar".
     """
     files = []
     if input_files:
@@ -192,13 +196,7 @@ def garmify_osm(
     print("✅ Done!")
 
 
-@task(
-    help={
-        "continent": "The continent name from which to download country maps",
-        "countries": "Comma separated list of countries to compose a map from",
-        "workdir": "Directory to download and create resulting map files",
-    }
-)
+@task
 def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./data/OSM"):
     """Downloads and creates a Garmin compatible map of the given countries from Geofabrik.
 
@@ -207,7 +205,8 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./dat
     Args:
         continent: The continent name from which to download country maps
         countries (list[str]): Comma separated list of countries to download.
-            e.g.: iran,turkmenistan,uzbekistan
+                               e.g.: iran,turkmenistan,uzbekistan
+        workdir (str): "Directory to download and create resulting map files.
     )
     """
     country_list = countries.split(",")
@@ -240,15 +239,8 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./dat
     print(f"✅ '{countries}' Done!")
 
 
-@task(
-    help={
-        "continent": "Name of the continent to download the map",
-        "country": "Name of the country to which download the map",
-        "workdir": "Directory containing opentopo zipfiles",
-        "gmt_binary": "path the gmap bin file. Defaults to ./tools/gmt",
-    }
-)
-def otm_xmerge(
+@task
+def garmify_otm(
     ctx,
     continent: str,
     country: str,
@@ -258,6 +250,12 @@ def otm_xmerge(
     """Downloads, extracts and merges map and countour files into a single Garmin map file.
 
     Requires GMapTool: https://www.gmaptool.eu/en/content/linux-version
+
+    Args:
+        continent (str): Name of the continent to download the map
+        country (str): Name of the country to which download the map
+        workdir (str): Directory containing opentopo zipfiles
+        gmt_binary (str, optional): Path the gmap bin file. Defaults to ./tools/gmt. Defaults to "./tools/gmt".
     """
     workdir = Path(workdir)
 
@@ -265,7 +263,7 @@ def otm_xmerge(
     contour_zipfile = workdir / f"otm-{country}-contours.zip"
     if not map_zipfile.exists() or not contour_zipfile.exists():
         print(f"❌ 📂 Couldn't find '{map_zipfile}' OR '{contour_zipfile}'")
-        download_geofabrik(ctx, continent, country, workdir)
+        download_otm(ctx, continent, country, workdir)
 
     print(f"📤️ Extracting '{map_zipfile}'")
     map_img = f"otm-{country}.img"
@@ -292,13 +290,7 @@ def otm_xmerge(
             ctx.run(cmd)
 
 
-@task(
-    help={
-        "input_dir": "Directory containing opentopo zipfiles",
-        "output_name": "Output name for the .img file",
-        "gmap_tool": "path the gmap. Defaults to ./tools/gmt",
-    }
-)
+@task
 def bbbike_xmerge(
     ctx, input_dir: Path | str, output_name: Path | str, gmap_tool: str = "./tools/gmt"
 ):
@@ -307,6 +299,11 @@ def bbbike_xmerge(
     a single map file ready to use in Garmin devices.
 
     Requires GMapTool: https://www.gmaptool.eu/en/content/linux-version
+
+    Args:
+        input_dir (Path | str): Directory containing opentopo zipfiles
+        output_name (Path | str): Output name for the .img file
+        gmap_tool (str, optional): Path the gmap. Defaults to ./tools/gmt. Defaults to "./tools/gmt".
     """
     input_dir = Path(input_dir)
     files = glob.glob(str(input_dir / "*.zip"))
