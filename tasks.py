@@ -5,10 +5,12 @@ import re
 import shutil
 import tempfile
 import zipfile
+from pathlib import Path
 
 import click
 import wget
 from invoke import task
+from rich import print as rprint
 from tqdm.rich import tqdm
 
 
@@ -19,6 +21,51 @@ def to_bullet_list(str_list):
 def print_cmd(cmd_str: str) -> None:
     print("⚙  Running command:")
     print(re.sub(r"--", r"\\\n  --", cmd_str))
+
+
+@task
+def download_geofabrik(ctx, continent: str, country: str, output_dir: Path | str):
+    """Downloads a country's .pbf map file download.geofabrik.de
+
+    Args:
+        continent (str): Continent to download country maps of
+        country (str): Country to download maps of
+        output_dir (str): Directory where to store the map zipped files
+    """
+    # Create output dir if not present
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    map_name = f"{country}-latest.osm.pbf"
+    download_url = f"https://download.geofabrik.de/{continent}/{map_name}"
+    print(f"⏳️ Downloading country '{country}'")
+    wget.download(download_url, out=str(out_dir / map_name))
+
+
+@task
+def download_otm(ctx, continent: str, country: str, output_dir: Path | str):
+    """Downloads the country's map and contours zipped .img files from garmin.opentopomap.org
+
+    Args:
+        continent (str): Continent to download country maps of
+        country (str): Country to download maps of
+        output_dir (str): Directory where to store the map zipped files
+    """
+    # Create output dir if not present
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    base_url = f"https://garmin.opentopomap.org/{continent}/{country}/"
+
+    # Download the map file
+    print(f"\n⏳️ Downloading OTM for '{country}'")
+    map_name = f"otm-{country}.zip"
+    wget.download(base_url + map_name, out=str(out_dir / map_name))
+
+    # Downlaod the contours file
+    print(f"\n⏳️ Downloading OTM contours for '{country}'")
+    contours_name = f"otm-{country}-contours.zip"
+    wget.download(base_url + contours_name, out=str(out_dir / contours_name))
 
 
 @task(
@@ -50,12 +97,15 @@ def extract_pois(
     }
 )
 def split_osm(
-    ctx, mapfile: str, outdir: str, splitter_jar: str = "./tools/splitter/splitter.jar"
+    ctx,
+    mapfile: Path | str,
+    outdir: Path | str,
+    splitter_jar: str = "./tools/splitter/splitter.jar",
 ):
     """Splits a .pbf or .osm file into smaller map tiles
     requires: Java & https://www.mkgmap.org.uk/doc/splitter.html
     """
-    print(f"🗺️  OSM / PBF file: {mapfile}")
+    print(f"✂️ Splitting  OSM / PBF file: {mapfile}")
     print(f"📂 Saving splits to: {outdir}")
     cmd = (
         f"java -Xmx2G -jar {splitter_jar} "
@@ -72,21 +122,23 @@ def split_osm(
 
 @task(
     help={
-        "in_dir": "Input directory where to look for .pbf or .img files",
-        "outdir": "output directory",
+        "output_file": "Output file path",
+        "input_files": "Comma separated list of map files to combine",
         "glob_pattern": "File pattern-name to look for map files to combine",
         "recursive": "If True, look recursively for split map files to combine",
-        "n_jobs": "Max num. of parallel jobs for mkgmap",
+        "random_mapname": "Whther to use a randomly geenrated map name (8 digit number)",
+        "jobs": "Max num. of parallel jobs for mkgmap",
+        "mkgmap_jar": "Path to the mkgmap jar file. Defaults to: ./tools/mkgmap/mkgmap.jar ",
     }
 )
 def garmify_osm(
     ctx,
-    in_dir: str,
-    outdir: str,
-    glob_pattern: str = "[0-9]*.pbf",
+    output_file: str,
+    input_files: str = "",
+    glob_pattern: str = "./data/OSM/^[0-9]*.pbf",
     recursive: bool = False,
     random_mapname: bool = False,
-    n_jobs: int = 4,
+    jobs: int = 4,
     mkgmap_jar: str = "./tools/mkgmap/mkgmap.jar",
 ):
     """Combines and converts a collections of .pbf or .osm map files
@@ -94,9 +146,24 @@ def garmify_osm(
     -
     requires: https://www.mkgmap.org.uk/download/mkgmap.html
     """
-    files = glob.glob(os.path.join(in_dir, glob_pattern), recursive=recursive)
+    files = []
+    if input_files:
+        files += input_files.split(",")
+    if glob_pattern:
+        files += glob.glob(glob_pattern, recursive=recursive)
+
+    if len(files) == 0:
+        rprint(
+            "💥 [red]No files found Error[/red]: Either a comma separated list of files "
+            "OR a glob_pattern should be provided!"
+        )
+        return
+
     print(f"🗺️  OSM / PBF files:{to_bullet_list(files)}")
     print(f"📦 Total files to combine: {len(files)}")
+
+    out_dir = Path(output_file).parent
+    out_name = Path(output_file).name
     cmd = (
         f"java -Xmx2G -jar {mkgmap_jar} "
         "--name-tag-list=name:en,int_name,name,place_name,loc_name "
@@ -105,8 +172,8 @@ def garmify_osm(
         "--route "
         "--remove-short-arcs "
         "--remove-ovm-work-files "
-        f"--max-jobs={n_jobs} "
-        f"--output-dir={outdir} "
+        f"--max-jobs={jobs} "
+        f"--output-dir={out_dir} "
         f"--gmapsupp {' '.join(files)}"
     )
 
@@ -114,8 +181,14 @@ def garmify_osm(
         cmd += f" --mapname={random.randint(10000000, 99999999)} "
 
     print_cmd(cmd)
-    print(f"📂 Saving resulting img map to: {outdir}")
+    print(f"📂 Saving resulting img map as: {out_dir}")
     ctx.run(cmd)
+
+    print(f"🔀 Moving and renaming resulting map 👉 {out_name}")
+    shutil.move(
+        out_dir / "gmapsupp.img",
+        output_file,
+    )
     print("✅ Done!")
 
 
@@ -126,9 +199,8 @@ def garmify_osm(
         "workdir": "Directory to download and create resulting map files",
     }
 )
-def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/OSM"):
-    """Creates a Garmin compatible map of the given countries based on
-    map downlaods from Geofabrik.
+def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "./data/OSM"):
+    """Downloads and creates a Garmin compatible map of the given countries from Geofabrik.
 
     Note that for now it is limited to countries in the same Continent!
 
@@ -138,99 +210,83 @@ def garmify_geofabrik(ctx, continent: str, countries: str, workdir: str = "data/
             e.g.: iran,turkmenistan,uzbekistan
     )
     """
-
-    def _download_map():
-        os.makedirs(country_dir, exist_ok=True)
-        country_url = (
-            f"https://download.geofabrik.de/{continent}/{country}-latest.osm.pbf"
-        )
-        print(f"⏳️ Downloading country '{country}'")
-        wget.download(country_url, out=map_pbf_file)
-
     country_list = countries.split(",")
     print(f"List of countries:{to_bullet_list(country_list)}")
-    os.makedirs(workdir, exist_ok=True)
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
 
     continent = continent.lower()
     for country in country_list:
         country = country.lower()
+        country_dir = workdir / country
         print(f"🪛  Processing country {country}")
-        country_dir = os.path.join(workdir, country)
-        map_pbf_file = os.path.join(country_dir, f"{country}-latest.osm.pbf")
 
-        if not os.path.exists(map_pbf_file):
-            _download_map()
-            print("✂️ Splitting...")
+        # Maybe download and split into smaller map files to avoid mem issues.
+        map_pbf_file = country_dir / f"{country}-latest.osm.pbf"
+        if not map_pbf_file.exists():
+            download_geofabrik(ctx, continent, country, country_dir)
             split_osm(ctx, mapfile=map_pbf_file, outdir=country_dir)
 
     print("🗺️  Combining...")
+    img_fname = "+".join(c[:2].upper() for c in country_list) + "_osm_geofabrik.img"
     garmify_osm(
         ctx,
-        in_dir=workdir,
-        glob_pattern="**/[0-9]*.pbf",
-        outdir=workdir,
+        glob_pattern=str(workdir / "**/[0-9]*.pbf"),
+        output_file=workdir / img_fname,
         recursive=True,
         random_mapname=True,
     )
 
-    img_fname = "+".join(c[:2].upper() for c in country_list) + "_osm_geofabrik.img"
-    print(f"🔀 Moving and renaming resulting map 👉 {img_fname}")
-    shutil.move(
-        os.path.join(workdir, "gmapsupp.img"),
-        os.path.join(workdir, img_fname),
-    )
-    # shutil.rmtree(country_dir)
     print(f"✅ '{countries}' Done!")
 
 
 @task(
     help={
-        "input_dir": "Directory containing opentopo zipfiles",
+        "continent": "Name of the continent to download the map",
         "country": "Name of the country to which download the map",
-        "gmap_tool": "path the gmap. Defaults to ./gmt",
+        "workdir": "Directory containing opentopo zipfiles",
+        "gmt_binary": "path the gmap bin file. Defaults to ./tools/gmt",
     }
 )
-def otm_xmerge(ctx, input_dir: str, country: str, gmap_tool: str = "./gmt"):
-    """Given a directory of .zip files containing .img (Garmin) map files
-    from https://garmin.opentopomap.org/, extracts and merges
-    the map and countour files into a single map file ready to use in
-    Garmin devices.
+def otm_xmerge(
+    ctx,
+    continent: str,
+    country: str,
+    workdir: str,
+    gmt_binary: str = "./tools/gmt",
+):
+    """Downloads, extracts and merges map and countour files into a single Garmin map file.
 
     Requires GMapTool: https://www.gmaptool.eu/en/content/linux-version
     """
-    map_zipfile = os.path.join(input_dir, f"otm-{country}.zip")
-    contour_zipfile = os.path.join(input_dir, f"otm-{country}-contours.zip")
+    workdir = Path(workdir)
 
-    if not os.path.exists(map_zipfile):
-        print(f"❌ 📂 Couldn't find '{map_zipfile}'")
-        return
-
-    if not os.path.exists(contour_zipfile):
-        print(f"❌ 📂 Couldn't find '{contour_zipfile}'")
-        return
+    map_zipfile = workdir / f"otm-{country}.zip"
+    contour_zipfile = workdir / f"otm-{country}-contours.zip"
+    if not map_zipfile.exists() or not contour_zipfile.exists():
+        print(f"❌ 📂 Couldn't find '{map_zipfile}' OR '{contour_zipfile}'")
+        download_geofabrik(ctx, continent, country, workdir)
 
     print(f"📤️ Extracting '{map_zipfile}'")
     map_img = f"otm-{country}.img"
     with zipfile.ZipFile(map_zipfile, "r") as zf:
-        zf.extract(member=map_img, path=input_dir)
+        zf.extract(member=map_img, path=str(workdir))
 
     print(f"📤️ Extracting '{contour_zipfile}'")
     contour_img = f"otm-{country}-contours.img"
     with zipfile.ZipFile(contour_zipfile, "r") as zf:
-        zf.extract(member=contour_img, path=input_dir)
+        zf.extract(member=contour_img, path=str(workdir))
 
     # Write all the extracted files in a tmp txt file
-    outname = f"{country}_otm_contours.img"
+    outname = f"{country}_otm.img"
     with tempfile.NamedTemporaryFile("w", suffix=".txt") as fp:
-        fp.write(os.path.join(input_dir, map_img) + "\n")
-        fp.write(os.path.join(input_dir, contour_img) + "\n")
+        fp.write(str(workdir / map_img) + "\n")
+        fp.write(str(workdir / contour_img) + "\n")
         fp.seek(0)
 
         # Compose the gmt command
-        cmd = " ".join(
-            [gmap_tool, "-j", "-o", os.path.join(input_dir, outname), "-@", fp.name]
-        )
-        print(f"🖥️ CMD: {' '.join(cmd)}")
+        cmd = " ".join([gmt_binary, "-j", "-o", str(workdir / outname), "-@", fp.name])
+        print_cmd(cmd)
         if click.confirm("\n👉️ Continue with the above command? "):
             print(f"📦️ Writing final map .img file: '{outname}'")
             ctx.run(cmd)
@@ -240,17 +296,20 @@ def otm_xmerge(ctx, input_dir: str, country: str, gmap_tool: str = "./gmt"):
     help={
         "input_dir": "Directory containing opentopo zipfiles",
         "output_name": "Output name for the .img file",
-        "gmap_tool": "path the gmap. Defaults to ./gmt",
+        "gmap_tool": "path the gmap. Defaults to ./tools/gmt",
     }
 )
-def bbbike_xmerge(ctx, input_dir: str, output_name: str, gmap_tool: str = "./gmt"):
+def bbbike_xmerge(
+    ctx, input_dir: Path | str, output_name: Path | str, gmap_tool: str = "./tools/gmt"
+):
     """Given a directory of .zip files containing .img (Garmin) map files
     from https://extract.bbbike.org/, extracts and creates
     a single map file ready to use in Garmin devices.
 
     Requires GMapTool: https://www.gmaptool.eu/en/content/linux-version
     """
-    files = glob.glob(os.path.join(input_dir, "*.zip"))
+    input_dir = Path(input_dir)
+    files = glob.glob(str(input_dir / "*.zip"))
 
     nfiles = []
     pbar = tqdm(files, total=len(files))
@@ -260,18 +319,18 @@ def bbbike_xmerge(ctx, input_dir: str, output_name: str, gmap_tool: str = "./gmt
         fmt, src, encoding = os.path.split(fpath)[-1].split(".")[2].split("-")
 
         # Extract if file not present
-        nfile = os.path.join(input_dir, f"{country}_{fmt}_{src}.img")
+        nfile = input_dir / f"{country}_{fmt}_{src}.img"
         nfiles.append(nfile)
-        if os.path.exists(nfile):
+        if nfile.exists():
             continue
 
         pbar.write(f"📤️ Extracting '{country}'")
         with zipfile.ZipFile(fpath, "r") as zf:
             efile = zf.extract(
                 member=f"{country}-{fmt}-{src}-{encoding}/gmapsupp.img",
-                path=input_dir,
+                path=str(input_dir),
             )
-            os.rename(efile, nfile)
+            os.rename(efile, str(nfile))
 
     # Write all the extracted files in a tmp txt file
     outname = output_name + ".img" if not output_name.endswith(".img") else output_name
@@ -280,9 +339,7 @@ def bbbike_xmerge(ctx, input_dir: str, output_name: str, gmap_tool: str = "./gmt
         fp.seek(0)
 
         # Compose the gmt command
-        cmd = " ".join(
-            [gmap_tool, "-j", "-o", os.path.join(input_dir, outname), "-@", fp.name]
-        )
+        cmd = " ".join([gmap_tool, "-j", "-o", str(input_dir / outname), "-@", fp.name])
         print(f"🖥️ CMD: {' '.join(cmd)}")
         if click.confirm("\n👉️ Continue with the above command? "):
             print(f"📦️ Writing final map .img file: '{outname}'")

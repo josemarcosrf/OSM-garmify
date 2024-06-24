@@ -33,7 +33,7 @@ java -Xmx1G -jar tools/mkgmap/mkgmap.jar \
 
 # OR:
 # 2.b. Combine all countries .pbf files into a single .img map file
-files=$(find ${indir} -type f -iname '6*.pbf')
+files=$(find ${indir} -type f -iname '[0-9]*.pbf')
 echo ${files} | tr ' ' "\n"
 java -Xmx2G -jar tools/mkgmap/mkgmap.jar \
     --name-tag-list=name:en,int_name,name,place_name,loc_name \

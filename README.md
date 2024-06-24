@@ -28,24 +28,31 @@ inv split-osm ./data/OSM/armenia/armenia-latest.osm.pbf -o ./data/OSM/armenia/
 ```shell
 # Combine several '.pbf' files into a single .img
 inv garmify-osm \
+    -i <tile-1.osm.pbf>,<tile-2.osm.pbf> \
+    -o ./data/OSM/MyBigMap.img \
     --random-mapname \
-    -i ./data/OSM/ \
-    -o ./data/OSM/ \
-    -g <tile-1.osm.pbf> <tile-2.osm.pbf> \
-    -n 2
+    -j 2
 ```
 
-Alternatively, use a glob patterns with recursive search. Place as many .pbf files in `data/OSM/*/` :
+Alternatively, use a glob pattern with recursive search. Place as many .pbf files in `data/OSM/*/` :
 
-```bash
+```shell
 # Combine every pbf file within ./data/OSM/*/*.pbf into a single Garmin .img file
 inv garmify-osm \
-    -i ./data/OSM/ \
-    -o ./data/OSM/ \
-    -g '**/[0-9]*.pbf' \
+    --glob-pattern './data/OSM/**/[0-9]*.pbf' \
+    --output-file ./data/OSM/MyBigMap.img \
     --random-mapname \
     --recurisve
-    -n 2
+    -j 2
+```
+
+Or combine a list of input files and glob search:
+
+```shell
+inv garmify-osm -j 2 -a -r \
+    -i ./data/DEM/otm-armenia-contours.img \
+    -g './data/OSM/armenia/*.pbf' \
+    -o ./data/OSM/armenia_osm+otm.img
 ```
 
 <details>
@@ -62,6 +69,8 @@ inv garmify-geofabrik \
     --continent asia \
     --countries armenia,iran,turkmenistan,uzbekistan,tajikistan,kyrgyzstan,kazakhstan
 ```
+
+Which will output a map called `AR+IR+TU+UZ+TA+KY+KA_osm_geofabrik.img`
 
 </details>
 
