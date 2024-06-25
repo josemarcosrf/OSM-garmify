@@ -36,8 +36,8 @@ def download_geofabrik(ctx, continent: str, country: str, output_dir: Path | str
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    download_url = f"https://download.geofabrik.de/{continent}/{map_name}"
     map_name = f"{country}-latest.osm.pbf"
+    download_url = f"https://download.geofabrik.de/{continent}/{map_name}"
     map_fpath = out_dir / map_name
     if not map_fpath.exists():
         print(f"⏳️ Downloading country '{country}'")
@@ -126,7 +126,7 @@ def split(
         outdir (Path | str): output directory
         splitter_jar (str, optional): Path to splitter jar file. Defaults to "./tools/splitter/splitter.jar".
     """
-    print(f"✂️ Splitting  OSM / PBF file: {mapfile}")
+    print(f"✂️  Splitting  OSM / PBF file: {mapfile}")
     print(f"📂 Saving splits to: {outdir}")
     cmd = (
         f"java -Xmx2G -jar {splitter_jar} "
@@ -218,8 +218,8 @@ def garmify_geofabrik(
     continent: str,
     countries: str,
     workdir: str = "./data/OSM",
-    split_maps: bool = True,
-    merge_maps: bool = True,
+    split_maps: bool = False,
+    merge_maps: bool = False,
 ):
     """Downloads and creates a Garmin compatible map of the given countries from Geofabrik.
 
@@ -254,7 +254,7 @@ def garmify_geofabrik(
         if split_maps:
             split(ctx, mapfile=map_pbf_file, outdir=country_dir)
 
-    if merge:
+    if merge_maps:
         if split_maps:
             glob_pattern = str(workdir / "**/[0-9]*.pbf")
         else:
